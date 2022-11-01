@@ -1,11 +1,22 @@
 {
-  "name": "companion-module-drautb",
+  "name": "traffic-light",
   "version": "1.0.0",
-  "description": "Personal utilities for Stream Deck",
+  "manufacturer": "drautb",
+  "product": "traffic-light",
+  "shortname": "traffic-light",
+  "description": "Control home office traffic light with stream deck",
+  "homepage": "https://github.com/drautb/companion-module-traffic-light",
+  "bugs": {
+    "url": "https://github.com/drautb/companion-module-traffic-light/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drautb/companion-module-traffic-light.git"
+  },
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC"
+  "author": "Ben Draut <drautb@gmail.com>",
+  "license": "MIT"
 }
