@@ -12,10 +12,28 @@ const rgb = (red, green, blue) => {
   return ((red & 0xff) << 16) | ((green & 0xff) << 8) | (blue & 0xff)
 }
 
+const buildColor = (red, green, blue) => {
+	return {
+		r: red,
+		g: green,
+		b: blue
+	}
+}
+
+/**
+ * @param rgbVal - value creating using rgb() function.
+ * @returns Object containing individual RGB values
+ */
+const rgbToColor = (rgbVal) => {
+	return buildColor((rgbVal >> 16) & 0xff, (rgbVal >> 8) & 0xff, rgbVal & 0xff)
+}
+
 /**
  * Companion instance class for Traffic Light
  */
 class TrafficLightInstance extends instance_skel {
+
+	currentColor = buildColor(0, 0, 0)
 
 	constructor(system, id, config) {
 		super(system, id, config)
@@ -29,6 +47,8 @@ class TrafficLightInstance extends instance_skel {
 	init() {
 		this.log('info', 'Traffic light module loaded')
 		this.checkConnection()
+		this.updateInstance()
+		this.updatePresets()
 	}
 
 	checkConnection() {
@@ -89,43 +109,146 @@ class TrafficLightInstance extends instance_skel {
 				label: 'Change Traffic Light Color',
 				options: [
 					{
-						type: 'number',
-						label: 'Red',
-						id: 'red',
-						default: 0,
-						min: 0,
-						max: 255,
-						step: 1
+						type: 'colorpicker',
+						label: 'Color',
+						id: 'color',
+						default: rgb(0, 0, 0)
 					},
-					{
-						type: 'number',
-						label: 'Green',
-						id: 'green',
-						default: 0,
-						min: 0,
-						max: 255,
-						step: 1
-					},
-					{
-						type: 'number',
-						label: 'Blue',
-						id: 'blue',
-						default: 0,
-						min: 0,
-						max: 255,
-						step: 1
-					}
-				]
+				],
+				callback: (action) => {
+					var self = this
+					var url = `http://${self.config.host}:${self.config.port}/color`
+					var data = JSON.stringify(rgbToColor(action.options.color))
+					self.log('info', `Updating traffic light at ${url} with ${data}`)
+					self.system.emit('rest_put', url, data, function (err, result) {
+						if (err !== null) {
+							self.log('error', `Error updating traffic light (${result.error.code})`);
+						} else if (result.response.statusCode !== 200) {
+							self.log('error', `Received non-200 response: ${result.response.statusCode} (${result.data})`)
+						} else {
+							self.log('info', `Updated traffic light successfully: ${JSON.stringify(result.data)}`)
+							self.currentColor = result.data
+							self.checkFeedbacks('updateBackgroundColor')
+						}
+					})
+				}
 			},
 			getColor: {
 				label: 'Get Traffic Light Color',
-				options: []
+				options: [],
+				callback: (action) => {
+					var self = this
+					var url = `http://${self.config.host}:${self.config.port}/color`
+					self.log('info', `Getting traffic light color at ${url}`)
+					self.system.emit('rest_get', url, function (err, result) {
+						if (err !== null) {
+							self.log('error', `Error getting traffic light color (${result.error.code})`);
+						} else if (result.response.statusCode !== 200) {
+							self.log('error', `Received non-200 response: ${result.response.statusCode} (${result.data})`)
+						} else {
+							self.log('info', `Recived current color successfully: ${JSON.stringify(result.data)}`)
+							self.currentColor = result.data
+							self.checkFeedbacks('updateBackgroundColor')
+						}
+					})
+				}
 			}
 		})
 	}
 
 	updateFeedbacks() {
+		this.setFeedbackDefinitions({
+			updateBackgroundColor: {
+				type: 'advanced',
+				label: 'Update Background Color',
+				description: 'Updates button background to match current color of traffic light',
+				options: [],
+				callback: (feedback) => {
+					var self = this
+					return {
+						bgcolor: rgb(self.currentColor.r, self.currentColor.g, self.currentColor.b)
+					}
+				}
+			}
+		})
+	}
 
+	updatePresets() {
+		this.setPresetDefinitions([
+			{
+				category: 'Commands',
+				label: 'Status',
+				bank: {
+					style: 'text',
+					text: 'Status',
+					size: '14',
+					color: rgb(255, 255, 255),
+					bgcolor: rgb(0, 0, 0)
+				},
+				actions: [{	action: 'getColor' }],
+				feedbacks: [{ type: 'updateBackgroundColor'	}]
+			},
+			{
+				category: 'Commands',
+				label: 'Busy',
+				bank: {
+					style: 'text',
+					text: 'Busy',
+					size: '14',
+					color: rgb(255, 255, 255),
+					bgcolor: rgb(0, 0, 0)
+				},
+				actions: [
+					{
+						action: 'changeColor',
+						options: {
+							color: rgb(255, 0, 0)
+						}
+					}
+				],
+				feedbacks: [{ type: 'updateBackgroundColor'	}]
+			},
+			{
+				category: 'Commands',
+				label: 'Focus',
+				bank: {
+					style: 'text',
+					text: 'Focused',
+					size: '14',
+					color: rgb(255, 255, 255),
+					bgcolor: rgb(0, 0, 0)
+				},
+				actions: [
+					{
+						action: 'changeColor',
+						options: {
+							color: rgb(255, 48, 0)
+						}
+					}
+				],
+				feedbacks: [{ type: 'updateBackgroundColor'	}]
+			},
+			{
+				category: 'Commands',
+				label: 'Available',
+				bank: {
+					style: 'text',
+					text: 'Available',
+					size: '14',
+					color: rgb(255, 255, 255),
+					bgcolor: rgb(0, 0, 0)
+				},
+				actions: [
+					{
+						action: 'changeColor',
+						options: {
+							color: rgb(0, 255, 0)
+						}
+					}
+				],
+				feedbacks: [{ type: 'updateBackgroundColor'	}]
+			}
+		])
 	}
 
 	destroy() {
